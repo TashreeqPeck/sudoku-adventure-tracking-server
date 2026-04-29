@@ -13,8 +13,6 @@ function apiUrl(pathWithQuery) {
   return new URL(path, baseDir).href;
 }
 
-const STORAGE_INCLUDE = "sa-include-tags";
-const STORAGE_EXCLUDE = "sa-exclude-tags";
 const STORAGE_SCOPE = "sa-scope";
 const STORAGE_BROWSE_MODE = "sa-browse-mode";
 
@@ -48,47 +46,44 @@ function persistScopeMode() {
   sessionStorage.setItem(STORAGE_SCOPE, scopeMode);
 }
 
-function loadTagsFromStorage() {
-  try {
-    const i = sessionStorage.getItem(STORAGE_INCLUDE);
-    const e = sessionStorage.getItem(STORAGE_EXCLUDE);
-    if (i) includeTags = JSON.parse(i);
-    if (e) excludeTags = JSON.parse(e);
-    if (!Array.isArray(includeTags)) includeTags = [];
-    if (!Array.isArray(excludeTags)) excludeTags = [];
-  } catch {
-    includeTags = [];
-    excludeTags = [];
-  }
-}
-
-function persistTags() {
-  sessionStorage.setItem(STORAGE_INCLUDE, JSON.stringify(includeTags));
-  sessionStorage.setItem(STORAGE_EXCLUDE, JSON.stringify(excludeTags));
-}
-
 function tagsToQueryValue(tags) {
   return tags.map((t) => t.trim()).filter(Boolean).join("\n");
 }
 
-function filterSignature() {
-  return `${tagsToQueryValue(includeTags)}\0${tagsToQueryValue(excludeTags)}`;
+function parseFilterValue(raw) {
+  const lines = String(raw || "")
+    .split(/\r?\n/)
+    .map((s) => s.trim())
+    .filter(Boolean);
+  const out = [];
+  const seen = new Set();
+  for (const line of lines) {
+    const key = line.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(line);
+  }
+  return out;
 }
 
-function qs() {
-  const p = new URLSearchParams();
-  const inc = tagsToQueryValue(includeTags);
-  const exc = tagsToQueryValue(excludeTags);
-  if (inc) p.set("include", inc);
-  if (exc) p.set("exclude", exc);
-  const q = p.toString();
-  return q ? `?${q}` : "";
+async function saveFiltersToDb() {
+  const res = await fetch(apiUrl("api/filters"), {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      include: tagsToQueryValue(includeTags),
+      exclude: tagsToQueryValue(excludeTags),
+    }),
+  });
+  if (!res.ok) throw new Error(await res.text());
 }
 
 async function loadState() {
-  const res = await fetch(apiUrl(`api/state${qs()}`));
+  const res = await fetch(apiUrl("api/state"));
   if (!res.ok) throw new Error(await res.text());
   state = await res.json();
+  includeTags = parseFilterValue(state.include);
+  excludeTags = parseFilterValue(state.exclude);
   return state;
 }
 
@@ -135,12 +130,15 @@ function renderChipContainer(el, tags, which) {
     rm.type = "button";
     rm.setAttribute("aria-label", `Remove ${text}`);
     rm.textContent = "×";
-    rm.addEventListener("click", () => {
+    rm.addEventListener("click", async () => {
       if (which === "include") includeTags.splice(idx, 1);
       else excludeTags.splice(idx, 1);
-      persistTags();
-      renderChipLists();
-      refreshAll().catch((err) => setMsg(String(err.message || err), true));
+      try {
+        await saveFiltersToDb();
+        await refreshAll();
+      } catch (err) {
+        setMsg(String(err.message || err), true);
+      }
     });
     wrap.appendChild(label);
     wrap.appendChild(rm);
@@ -175,7 +173,6 @@ function addTag(which, raw) {
     return false;
   }
   list.push(t);
-  persistTags();
   $("constraint-custom").value = "";
   $("constraint-select").value = "";
   renderChipLists();
@@ -529,7 +526,7 @@ async function onRefreshSheet() {
   }
 }
 
-$("btn-add-include").addEventListener("click", () => {
+$("btn-add-include").addEventListener("click", async () => {
   const v = getPickerValue();
   if (!v) {
     setMsg("Pick a constraint from the list or enter custom text.", true);
@@ -540,10 +537,15 @@ $("btn-add-include").addEventListener("click", () => {
     if (hasTagInsensitive(includeTags, v)) setMsg("Already in include list.", true);
     return;
   }
-  refreshAll().catch((e) => setMsg(String(e.message || e), true));
+  try {
+    await saveFiltersToDb();
+    await refreshAll();
+  } catch (e) {
+    setMsg(String(e.message || e), true);
+  }
 });
 
-$("btn-add-exclude").addEventListener("click", () => {
+$("btn-add-exclude").addEventListener("click", async () => {
   const v = getPickerValue();
   if (!v) {
     setMsg("Pick a constraint from the list or enter custom text.", true);
@@ -554,15 +556,24 @@ $("btn-add-exclude").addEventListener("click", () => {
     if (hasTagInsensitive(excludeTags, v)) setMsg("Already in exclude list.", true);
     return;
   }
-  refreshAll().catch((e) => setMsg(String(e.message || e), true));
+  try {
+    await saveFiltersToDb();
+    await refreshAll();
+  } catch (e) {
+    setMsg(String(e.message || e), true);
+  }
 });
 
-$("btn-clear-filters").addEventListener("click", () => {
+$("btn-clear-filters").addEventListener("click", async () => {
   includeTags = [];
   excludeTags = [];
-  persistTags();
   renderChipLists();
-  refreshAll().catch((e) => setMsg(String(e.message || e), true));
+  try {
+    await saveFiltersToDb();
+    await refreshAll();
+  } catch (e) {
+    setMsg(String(e.message || e), true);
+  }
 });
 
 $("btn-refresh").addEventListener("click", onRefreshSheet);
@@ -675,7 +686,6 @@ $("scope-mode").addEventListener("change", () => {
   renderBrowse();
 });
 
-loadTagsFromStorage();
 loadScopeFromStorage();
 renderChipLists();
 refreshAll().catch((e) => {

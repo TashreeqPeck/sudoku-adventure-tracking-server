@@ -31,6 +31,16 @@ pub async fn init_pool(data_dir: &Path) -> anyhow::Result<SqlitePool> {
     .execute(&pool)
     .await?;
 
+    sqlx::query(
+        r#"CREATE TABLE IF NOT EXISTS app_settings (
+        key TEXT PRIMARY KEY,
+        value TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+    )"#,
+    )
+    .execute(&pool)
+    .await?;
+
     migrate_columns(&pool).await?;
     Ok(pool)
 }
@@ -170,4 +180,56 @@ pub async fn import_progress_from_csv_records(
     }
     tx.commit().await?;
     Ok(n)
+}
+
+pub async fn load_filter_settings(pool: &SqlitePool) -> anyhow::Result<(String, String)> {
+    let rows = sqlx::query("SELECT key, value FROM app_settings WHERE key IN (?, ?)")
+        .bind("filters_include")
+        .bind("filters_exclude")
+        .fetch_all(pool)
+        .await?;
+
+    let mut include = String::new();
+    let mut exclude = String::new();
+    for row in rows {
+        let key: String = row.try_get("key")?;
+        let value: String = row.try_get("value")?;
+        match key.as_str() {
+            "filters_include" => include = value,
+            "filters_exclude" => exclude = value,
+            _ => {}
+        }
+    }
+    Ok((include, exclude))
+}
+
+pub async fn save_filter_settings(pool: &SqlitePool, include: &str, exclude: &str) -> anyhow::Result<()> {
+    let now = Utc::now().to_rfc3339();
+    let mut tx = pool.begin().await?;
+    sqlx::query(
+        r#"INSERT INTO app_settings (key, value, updated_at)
+        VALUES (?, ?, ?)
+        ON CONFLICT(key) DO UPDATE SET
+          value = excluded.value,
+          updated_at = excluded.updated_at"#,
+    )
+    .bind("filters_include")
+    .bind(include)
+    .bind(&now)
+    .execute(&mut *tx)
+    .await?;
+    sqlx::query(
+        r#"INSERT INTO app_settings (key, value, updated_at)
+        VALUES (?, ?, ?)
+        ON CONFLICT(key) DO UPDATE SET
+          value = excluded.value,
+          updated_at = excluded.updated_at"#,
+    )
+    .bind("filters_exclude")
+    .bind(exclude)
+    .bind(&now)
+    .execute(&mut *tx)
+    .await?;
+    tx.commit().await?;
+    Ok(())
 }

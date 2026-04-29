@@ -76,3 +76,9 @@ pub struct ImportBody {
     #[serde(rename = "replaceAll")]
     pub replace_all: Option<bool>,
 }
+
+#[derive(Debug, Deserialize)]
+pub struct FiltersBody {
+    pub include: Option<String>,
+    pub exclude: Option<String>,
+}

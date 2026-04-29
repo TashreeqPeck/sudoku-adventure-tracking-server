@@ -124,6 +124,7 @@ async fn main() -> anyhow::Result<()> {
     let api = Router::new()
         .route("/health", get(handlers::api_health))
         .route("/state", get(handlers::api_state))
+        .route("/filters", put(handlers::api_filters_put))
         .route("/progress/{number}", put(handlers::api_progress_put))
         .route("/refresh", post(handlers::api_refresh))
         .route("/import-from-url", post(handlers::api_import))
