@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Sudoku Adventure Tracker</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <header class="top">
+      <h1>Sudoku Adventure</h1>
+      <div class="top-actions">
+        <button type="button" id="btn-refresh" class="btn ghost">Refresh</button>
+        <span id="sync-status" class="muted"></span>
+      </div>
+    </header>
+
+    <main class="layout">
+      <section class="card hero" id="next-section">
+        <div class="hero-head">
+          <span class="pill" id="next-label">Next puzzle</span>
+          <span class="puzzle-num" id="next-number"></span>
+        </div>
+        <h2 id="next-title">Loading…</h2>
+        <p class="meta">
+          <span id="next-setter"></span>
+          <span class="dot" aria-hidden="true">·</span>
+          <span id="next-constraints"></span>
+        </p>
+        <div class="links" id="next-links"></div>
+        <div class="time-row single-time">
+          <label class="time-single-label" for="t-combined">Time</label>
+          <input
+            type="text"
+            id="t-combined"
+            class="combined-time full"
+            placeholder="0:04:50"
+            autocomplete="off"
+            spellcheck="false"
+            title="Example: 0:04:50"
+          />
+        </div>
+        <fieldset class="video-row video-fieldset" id="video-used-fieldset">
+          <legend class="video-label">Video</legend>
+          <div class="video-radios">
+            <label class="radio-pill">
+              <input type="radio" name="video-used" value="none" checked />
+              Not used
+            </label>
+            <label class="radio-pill">
+              <input type="radio" name="video-used" value="partial" />
+              Partial
+            </label>
+            <label class="radio-pill">
+              <input type="radio" name="video-used" value="full" />
+              Full
+            </label>
+          </div>
+        </fieldset>
+        <div class="actions">
+          <button type="button" id="btn-solved" class="btn primary">Solved</button>
+          <button type="button" id="btn-skip" class="btn ghost">Skip</button>
+          <button type="button" id="btn-active" class="btn ghost">Active</button>
+          <button type="button" id="btn-clear-time" class="btn ghost">Clear time</button>
+        </div>
+        <p id="next-msg" class="msg" role="status"></p>
+      </section>
+
+      <section class="card stats">
+        <div class="stats-head">
+          <h3>Stats</h3>
+          <div class="scope-inline">
+            <label class="browse-show-label" for="scope-mode">Scope</label>
+            <select id="scope-mode" class="browse-mode-select" aria-label="Stats and browse scope">
+              <option value="filtered">Filtered</option>
+              <option value="all">All puzzles</option>
+            </select>
+          </div>
+        </div>
+        <div class="stat-grid">
+          <div>
+            <div class="stat-val" id="st-solved">—</div>
+            <div class="stat-lbl">Solved</div>
+          </div>
+          <div>
+            <div class="stat-val" id="st-skipped">—</div>
+            <div class="stat-lbl">Skipped</div>
+          </div>
+          <div>
+            <div class="stat-val" id="st-remain">—</div>
+            <div class="stat-lbl">In queue</div>
+          </div>
+          <div>
+            <div class="stat-val" id="st-avg">—</div>
+            <div class="stat-lbl">Avg time (timed)</div>
+          </div>
+        </div>
+      </section>
+
+      <section class="card filters">
+        <h3>Constraints</h3>
+        <p class="hint">
+          <strong>Include</strong> — next puzzle is the first unsolved match where the
+          constraint text contains <em>any</em> listed item. Leave the include list empty
+          to allow all types (still subject to exclusions).
+        </p>
+        <div id="include-chips" class="chips" aria-label="Include constraints"></div>
+        <p class="hint">
+          <strong>Exclude</strong> — drop puzzles whose constraint text contains
+          <em>any</em> of these.
+        </p>
+        <div id="exclude-chips" class="chips" aria-label="Exclude constraints"></div>
+        <div class="constraint-picker">
+          <label class="picker-label" for="constraint-select">Add to a list</label>
+          <div class="picker-row">
+            <select id="constraint-select">
+              <option value="">— Choose from sheet —</option>
+            </select>
+            <input
+              type="text"
+              id="constraint-custom"
+              placeholder="Or custom text…"
+              autocomplete="off"
+              spellcheck="false"
+              aria-label="Custom constraint text"
+            />
+          </div>
+          <div class="picker-actions">
+            <button type="button" id="btn-add-include" class="btn primary">
+              Add to include
+            </button>
+            <button type="button" id="btn-add-exclude" class="btn ghost">
+              Add to exclude
+            </button>
+            <button type="button" id="btn-clear-filters" class="btn ghost">
+              Clear all filters
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <details class="card browse" id="browse-wrap">
+        <summary>Browse puzzles</summary>
+        <div class="browse-toolbar">
+          <span id="browse-scope-note" class="pager-info"></span>
+          <div id="browse-pager" class="pager" aria-label="Pagination"></div>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Title</th>
+                <th>Constraints</th>
+                <th>Status</th>
+                <th>Time</th>
+                <th>Video</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="browse-body"></tbody>
+          </table>
+        </div>
+        <p class="muted browse-note" id="browse-note"></p>
+      </details>
+
+      <details class="import-foot" id="import-wrap">
+        <summary class="import-summary">Import from spreadsheet CSV…</summary>
+        <p class="hint import-hint">
+          Paste the normal <strong>Share / Edit</strong> link from the address bar
+          (for example
+          <code>docs.google.com/spreadsheets/d/<wbr />…/edit?…</code>) or a CSV
+          <code>…/export?format=csv&amp;gid=…</code> URL. The first puzzle tab
+          (<code>gid=0</code>) is used unless the link includes another
+          <code>gid</code>. Columns <strong>Puzzle Number</strong>,
+          <strong>Solved</strong>, and <strong>Time</strong> are read.
+        </p>
+        <label class="import-check">
+          <input type="checkbox" id="import-replace-all" checked />
+          Clear all saved progress first, then import
+        </label>
+        <div class="import-row">
+          <input
+            type="url"
+            id="import-url"
+            class="import-url"
+            placeholder="https://docs.google.com/spreadsheets/d/…/edit?usp=sharing"
+            autocomplete="off"
+            spellcheck="false"
+          />
+          <button type="button" id="btn-import" class="btn ghost">Import</button>
+        </div>
+        <p id="import-msg" class="msg import-msg" role="status"></p>
+      </details>
+    </main>
+
+    <script src="/app.js" type="module"></script>
+  </body>
+</html>

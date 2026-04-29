@@ -1,0 +1,19 @@
+services:
+  tracker:
+    build: .
+    ports:
+      - "${HOST_PORT:-3840}:3840"
+    environment:
+      NODE_ENV: production
+      DATA_DIR: /data
+      PORT: "3840"
+      SHEET_SYNC_INTERVAL_MS: "${SHEET_SYNC_INTERVAL_MS:-86400000}"
+      # Optional overrides (uncomment or set in a `.env` file next to this compose file):
+      # SHEET_ID: "your_spreadsheet_id"
+      # SHEET_GID: "0"
+    volumes:
+      - tracker-data:/data
+    restart: unless-stopped
+
+volumes:
+  tracker-data:

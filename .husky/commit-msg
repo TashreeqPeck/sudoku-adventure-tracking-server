@@ -1,0 +1,3 @@
+#!/usr/bin/env sh
+MSG="${1:-.git/COMMIT_EDITMSG}"
+npx --no -- commitlint --edit "$MSG"
