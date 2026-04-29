@@ -5,7 +5,9 @@ RUN apk add --no-cache python3 make g++
 WORKDIR /app
 
 COPY package.json ./
-RUN npm install --omit=dev
+# --omit=dev skips husky (devDependency), but `prepare` still runs `husky` → exit 127 if we do not
+# skip lifecycle scripts. Rebuild native addons after install.
+RUN npm install --omit=dev --ignore-scripts && npm rebuild better-sqlite3
 
 COPY server.mjs ./
 COPY public ./public
