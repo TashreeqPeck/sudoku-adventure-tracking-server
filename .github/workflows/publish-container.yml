@@ -37,7 +37,8 @@ jobs:
         id: semver_parts
         shell: bash
         run: |
-          version='${{ steps.semver.outputs.new_version }}'
+          raw_tag='${{ steps.semver.outputs.new_tag }}'
+          version="${raw_tag#v}"
           if [ -z "$version" ]; then
             echo "version=" >> "$GITHUB_OUTPUT"
             echo "major_minor=" >> "$GITHUB_OUTPUT"
