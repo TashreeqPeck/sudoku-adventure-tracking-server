@@ -59,6 +59,8 @@ docker compose up -d --build
 
 Open `http://localhost:3840`. SQLite lives in the named volume `tracker-data` (mounted at `/data` in the container).
 
+After each merge to **`main`**, GitHub Actions builds the image and pushes it to **GitHub Container Registry** as `ghcr.io/<owner>/sudoku-adventure-tracking-server:latest` (and a `sha-<commit>` tag). Pull with `docker pull ghcr.io/<your-github-username>/sudoku-adventure-tracking-server:latest` (use lowercase). The first time, you may need to set the package visibility under **Packages** in your GitHub profile or org settings.
+
 **Useful overrides** (shell env or a `.env` file beside `docker-compose.yml`):
 
 - `HOST_PORT` — host port mapped to the app (default `3840`).
