@@ -17,6 +17,8 @@ Follow [Conventional Commits](https://www.conventionalcommits.org/): **`type(opt
 - **Types:** `feat`, `fix`, `docs`, `style`, `refactor`, `perf`, `test`, `build`, `ci`, `chore`, `revert` (use what fits).
 - **Subject:** imperative mood, no trailing period, no vague “update” / “fix stuff” unless scope is obvious.
 - **Body / footer:** use for **why**, breaking changes (`BREAKING CHANGE:`), or issue refs when helpful.
+- **Commitlint width:** keep every commit-message body/footer line at **100 chars max** (wrap long lines).
+- **Default safe mode:** if a body is not required, use a subject-only commit message.
 
 Examples:
 
