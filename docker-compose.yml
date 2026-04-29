@@ -4,7 +4,6 @@ services:
     ports:
       - "${HOST_PORT:-3840}:3840"
     environment:
-      NODE_ENV: production
       DATA_DIR: /data
       PORT: "3840"
       SHEET_SYNC_INTERVAL_MS: "${SHEET_SYNC_INTERVAL_MS:-86400000}"

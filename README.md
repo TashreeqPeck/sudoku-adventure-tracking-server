@@ -1,105 +1,145 @@
 # Sudoku Adventure tracker
 
-Small **Node + Express** app that keeps your **Sudoku Adventure** puzzle list in sync with a Google Sheet CSV export, stores progress in **SQLite**, and serves a **single-page UI** for next puzzle, filters, stats, browse, and import.
+**Rust (Axum) + SQLite** service that syncs your **Sudoku Adventure** puzzle list from a Google Sheet CSV export, stores progress in SQLite, and serves the existing **static SPA** in `public/` (next puzzle, filters, stats, browse, import). The stack is tuned for **lower RAM** than a Node runtime.
+
+## Credits & sources
+
+**Sudoku Adventure** (the video series and community puzzle list) is created and hosted by **[Rangsk](https://www.youtube.com/@Rangsk)** on YouTube. Individual puzzles are credited to their setters in the sheet.
+
+- **YouTube:** https://www.youtube.com/@Rangsk  
+- **Source spreadsheet (same id as the app default `SHEET_ID`):** https://docs.google.com/spreadsheets/d/1y4BYBEuXbzReb_tx3bTUdKwynL2JveL3ob55g6c-D-Y/edit  
+- **CSV export (gid `0`, same as default `SHEET_GID`):** https://docs.google.com/spreadsheets/d/1y4BYBEuXbzReb_tx3bTUdKwynL2JveL3ob55g6c-D-Y/export?format=csv&gid=0  
+
+This repository is an **independent** tracker UI and server for working with that public sheet data; it is not affiliated with Google or YouTube.
 
 ## Requirements
 
-- **Node.js** 20+ (local run). The Docker image uses Node 22 Alpine with build tools for `better-sqlite3`.
+- **Rust** 1.83+ (2021 edition) to build locally: https://rustup.rs/
+- **Docker** optional for deployment (multi-stage build; runtime image is Debian slim + `ca-certificates` + `libsqlite3-0`).
 
-## Quick start
+## Quick start (local)
 
 ```bash
-npm install
-npm start
+cargo run --release
 ```
 
-Open `http://localhost:3840` (or the port you set with `PORT`).
+Open `http://localhost:3840` (or the port from `PORT`). Static files default to `./public`; override with `STATIC_DIR`.
 
-- **Dev** (restart on file changes): `npm run dev`
-- The server tries an **initial sheet sync** on boot, then on a timer (see `SHEET_SYNC_INTERVAL_MS`). Use **Refresh** in the UI or `POST /api/refresh` to pull the sheet sooner.
+- **Logging:** `RUST_LOG=info` (default in code) or `RUST_LOG=debug` for more detail.
+- The server runs an **initial sheet sync** on boot, then on an interval (`SHEET_SYNC_INTERVAL_MS`, minimum **60s**). Use **Refresh** in the UI or `POST /api/refresh` to pull the sheet sooner.
 
-## Commits and versioning
+### Local development
 
-- **Commit messages** follow [Conventional Commits](https://www.conventionalcommits.org/) (`feat:`, `fix:`, `chore:`, `docs:`, `refactor:`, `BREAKING CHANGE:` in footer or `!` after type, etc.). After `npm install`, a **Husky** `commit-msg` hook runs [**Commitlint**](https://commitlint.js.org/) so non-compliant messages are rejected.
-- **Releases** use [Semantic Versioning](https://semver.org/). The version in `package.json` is the source of truth for the app. To cut a release from conventional commits since the last git tag (bumps `package.json`, updates `CHANGELOG.md`, commits, and tags):
+1. **Install Rust** (once): https://rustup.rs/ — then `rustup update` periodically.
+2. **Fast iteration** — use a **dev** build (compiles quicker than `--release`):
 
-  ```bash
-  npm run release
-  ```
+   ```bash
+   cargo run
+   ```
 
-  To force a bump level: `npm run release:patch`, `npm run release:minor`, or `npm run release:major`. Push with tags: `git push --follow-tags`.
+   Use `cargo run --release` when you care about performance or to match production.
 
-- **First release** (repo has no semver tag yet): `npx commit-and-tag-version --first-release` tags the current `package.json` version without changing it, then add `CHANGELOG.md` entries on the next `npm run release`.
+3. **Auto-restart on save** (optional): `cargo install cargo-watch`, then from the repo root:
+
+   ```bash
+   cargo watch -x run
+   ```
+
+4. **Shorter sheet sync while developing** — the server enforces a **60s minimum** sync interval. Example (PowerShell):
+
+   ```powershell
+   $env:SHEET_SYNC_INTERVAL_MS = "60000"
+   cargo run
+   ```
+
+   Bash: `SHEET_SYNC_INTERVAL_MS=60000 cargo run`
+
+5. **Smoke-check the API** (with the server running):
+
+   ```bash
+   curl -s http://localhost:3840/api/health
+   ```
+
+6. **UI** — open `http://localhost:3840` in a browser; SQLite is created under `./data/` by default (`DATA_DIR`).
+
+7. **Lint / format** (optional):
+
+   ```bash
+   cargo fmt
+   cargo clippy -- -D warnings
+   ```
+
+There is **no `cargo test` suite** in this repo yet; testing is mainly manual through the browser and the `/api/*` endpoints.
 
 ## Environment variables
 
 | Variable | Default | Purpose |
 |----------|---------|---------|
-| `PORT` | `3840` | HTTP port |
-| `DATA_DIR` | `./data` (next to `server.mjs`) | Directory for `progress.sqlite` |
-| `SHEET_ID` | Built-in Sudoku Adventure sheet id | Google Spreadsheet id (`/d/<id>/` in the URL) |
-| `SHEET_GID` | `0` | Sheet tab gid for CSV export |
-| `SHEET_SYNC_INTERVAL_MS` | `86400000` (24h) | Minimum interval between automatic syncs (floor **60s** in code). Alias: `SYNC_INTERVAL_MS` |
+| `PORT` | `3840` | HTTP listen port |
+| `DATA_DIR` | `./data` | Directory for `progress.sqlite` |
+| `STATIC_DIR` | `public` | Static site root (`index.html`, `app.js`, …) |
+| `SHEET_ID` | Built-in Sudoku Adventure sheet id | Spreadsheet id from `/d/<id>/` |
+| `SHEET_GID` | `0` | Tab `gid` for CSV export |
+| `SHEET_SYNC_INTERVAL_MS` | `86400000` (24h) | Auto-sync interval in ms (floor **60s**). Alias: `SYNC_INTERVAL_MS` |
 
-The sheet must be reachable as **CSV** (typical `…/export?format=csv&gid=…`). If Google returns 404, set the sheet to **Anyone with the link can view** (or equivalent) and use a tab URL that includes the correct `gid` when it is not the first tab.
+The sheet must be reachable as **CSV** (`…/export?format=csv&gid=…`). If Google returns 404, set the sheet to **Anyone with the link can view** (or equivalent) and use a tab URL with the correct `gid` when it is not the first sheet.
+
+## Versioning & commit messages
+
+The app version is **`Cargo.toml` `version`**. Tag releases in git as you prefer (e.g. `v1.0.1`).
+
+**Conventional commits** ([Conventional Commits](https://www.conventionalcommits.org/)) are **recommended** for clear history, but they are **not enforced** in this repo anymore: the previous **Husky + Commitlint** setup was removed with the move to Rust (no `npm`/`package.json` git hooks). Nothing blocks a non-conventional message locally.
+
+To enforce conventions again, typical options are: a **GitHub Action** on pull requests (e.g. commitlint or semantic-PR checks), **pre-commit** / **lefthook** with commitlint, or a policy on your host. This README does not ship those by default.
 
 ## Expected CSV columns
 
-Rows are parsed with headers (see `normalizeRow` in `server.mjs`):
+Parsed with a header row (see `csv_util::normalize_row`):
 
 - `Puzzle Number`, `Title`, `Setter`, `Constraints`, `Puzzle Link`, `Video Link`
 
 ## Docker Compose (recommended)
 
-From the project root:
-
 ```bash
 docker compose up -d --build
 ```
 
-Open `http://localhost:3840`. SQLite lives in the named volume `tracker-data` (mounted at `/data` in the container).
+SQLite lives in the named volume `tracker-data` (mounted at `/data`). The container serves static files from `/public`.
 
-After each merge to **`main`**, GitHub Actions builds the image and pushes it to **GitHub Container Registry** as `ghcr.io/<owner>/sudoku-adventure-tracking-server:latest` (and a `sha-<commit>` tag). Pull with `docker pull ghcr.io/<your-github-username>/sudoku-adventure-tracking-server:latest` (use lowercase). The first time, you may need to set the package visibility under **Packages** in your GitHub profile or org settings.
+After each merge to **`main`**, GitHub Actions builds the image and pushes to **GHCR** (`ghcr.io/<owner>/sudoku-adventure-tracking-server:latest` and `sha-<commit>`). Use lowercase in the image path. Set package visibility under **Packages** if you need public pulls.
 
-**Useful overrides** (shell env or a `.env` file beside `docker-compose.yml`):
-
-- `HOST_PORT` — host port mapped to the app (default `3840`).
-- `SHEET_SYNC_INTERVAL_MS` — same meaning as in the table above (default `86400000`).
-
-Set `SHEET_ID` / `SHEET_GID` in `docker-compose.yml` under `environment`, or use Compose’s `env_file` pointing at a file you keep out of git.
-
-Stop and remove the container (volume kept):
+**Compose overrides:** `HOST_PORT`, `SHEET_SYNC_INTERVAL_MS`, and optionally `SHEET_ID` / `SHEET_GID` in `docker-compose.yml` or a `.env` file.
 
 ```bash
-docker compose down
+docker compose down   # stops container; keeps volume
 ```
 
 ## Docker (without Compose)
 
 ```bash
 docker build -t sudoku-adventure-tracker .
-docker run --rm -p 3840:3840 -v sa-data:/data sudoku-adventure-tracker
+docker run --rm -p 3840:3840 -e STATIC_DIR=/public -v sa-data:/data sudoku-adventure-tracker
 ```
 
-Image defaults: `DATA_DIR=/data`, `PORT=3840`, `SHEET_SYNC_INTERVAL_MS=86400000`. Override with `-e` as needed.
+Defaults inside the image: `DATA_DIR=/data`, `STATIC_DIR=/public`, `PORT=3840`, `SHEET_SYNC_INTERVAL_MS=86400000`.
 
 ## API (summary)
 
 | Method | Path | Description |
 |--------|------|-------------|
 | `GET` | `/api/health` | Liveness / puzzle cache size |
-| `GET` | `/api/state` | Full UI state: `next`, `puzzles` (filtered), `catalog` (all rows + `matchesFilter`), `statsAll`, `statsFiltered`, filters echo, sync metadata. Query: `include`, `exclude` (constraint substring filters, newline- or comma-separated in the query string as stored by the client) |
-| `PUT` | `/api/progress/:number` | Update progress: `solved`, `skipped`, `active`, `videoUsed` (`none` / `partial` / `full`), `timeSeconds` or `time` (human-readable), `clearTime`, etc. |
-| `POST` | `/api/refresh` | Re-download puzzle list from the configured export URL |
-| `POST` | `/api/import-from-url` | JSON `{ "url": "https://…", "replaceAll": false }` — import puzzles from another sheet CSV URL |
+| `GET` | `/api/state` | `next`, `puzzles`, `catalog`, `statsAll`, `statsFiltered`, filters, sync metadata. Query: `include`, `exclude` |
+| `PUT` | `/api/progress/{number}` | `solved`, `skipped`, `active`, `videoUsed`, `timeSeconds` / `time`, `clearTime`, … |
+| `POST` | `/api/refresh` | Re-download configured sheet CSV |
+| `POST` | `/api/import-from-url` | JSON `{ "url": "https://…", "replaceAll": false }` |
 
-Static files are served from `public/`; the UI calls `/api/...` relative to the page URL so it works behind a path prefix when reverse-proxied.
+The UI resolves `/api/...` relative to the page URL (works behind a path prefix).
 
 ## Data
 
-- SQLite file: `{DATA_DIR}/progress.sqlite` (solved, skipped, optional time and video usage per puzzle number).
-- The repo’s `.gitignore` excludes `data/` and `node_modules/` so local DB and dependencies are not committed by default.
+- SQLite: `{DATA_DIR}/progress.sqlite`
+- `.gitignore` includes `data/` and `target/`.
 
 ## License
 
-Private project (`"private": true` in `package.json`); add a license file if you intend to distribute it.
+Add a `LICENSE` file if you distribute the project.

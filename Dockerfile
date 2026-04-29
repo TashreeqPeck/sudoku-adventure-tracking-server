@@ -1,23 +1,21 @@
-FROM node:22-alpine
+# syntax=docker/dockerfile:1
 
-RUN apk add --no-cache python3 make g++
-
+FROM rust:1.83-bookworm AS builder
 WORKDIR /app
+COPY Cargo.toml ./
+COPY src ./src
+RUN cargo build --release
 
-COPY package.json ./
-# --omit=dev skips husky (devDependency), but `prepare` still runs `husky` → exit 127 if we do not
-# skip lifecycle scripts. Rebuild native addons after install.
-RUN npm install --omit=dev --ignore-scripts && npm rebuild better-sqlite3
-
-COPY server.mjs ./
-COPY public ./public
-
-ENV NODE_ENV=production
+FROM debian:bookworm-slim
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends ca-certificates libsqlite3-0 \
+    && rm -rf /var/lib/apt/lists/*
+COPY --from=builder /app/target/release/sa_tracker /usr/local/bin/sa_tracker
+COPY public /public
 ENV DATA_DIR=/data
+ENV STATIC_DIR=/public
 ENV PORT=3840
 ENV SHEET_SYNC_INTERVAL_MS=86400000
-
 VOLUME ["/data"]
 EXPOSE 3840
-
-CMD ["node", "server.mjs"]
+CMD ["/usr/local/bin/sa_tracker"]
