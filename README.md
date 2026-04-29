@@ -86,11 +86,11 @@ The sheet must be reachable as **CSV** (`…/export?format=csv&gid=…`). If Goo
 
 ## Versioning & commit messages
 
-The app version is **`Cargo.toml` `version`**. Tag releases in git as you prefer (e.g. `v1.0.1`).
+The app version remains **`Cargo.toml` `version`**, and container image versions are generated in CI from commit history on `main`.
 
-**Conventional commits** ([Conventional Commits](https://www.conventionalcommits.org/)) are **recommended** for clear history, but they are **not enforced** in this repo anymore: the previous **Husky + Commitlint** setup was removed with the move to Rust (no `npm`/`package.json` git hooks). Nothing blocks a non-conventional message locally.
+The publish workflow computes semver using **Conventional Commits** ([Conventional Commits](https://www.conventionalcommits.org/)) and pushes git tags (`vX.Y.Z`) plus matching GHCR image tags (`X.Y.Z`, `X.Y`, `X`, alongside `latest` and `sha-<commit>`).
 
-To enforce conventions again, typical options are: a **GitHub Action** on pull requests (e.g. commitlint or semantic-PR checks), **pre-commit** / **lefthook** with commitlint, or a policy on your host. This README does not ship those by default.
+Conventional commit messages are enforced in CI via `.github/workflows/conventional-commits.yml` (PRs fail if commits do not follow the spec). Local commits are still not blocked by hooks in this Rust setup unless you add your own local tooling.
 
 ## Expected CSV columns
 
@@ -106,7 +106,7 @@ docker compose up -d --build
 
 SQLite lives in the named volume `tracker-data` (mounted at `/data`). The container serves static files from `/public`.
 
-After each merge to **`main`**, GitHub Actions builds the image and pushes to **GHCR** (`ghcr.io/<owner>/sudoku-adventure-tracking-server:latest` and `sha-<commit>`). Use lowercase in the image path. Set package visibility under **Packages** if you need public pulls.
+After each merge to **`main`**, GitHub Actions builds the image and pushes to **GHCR** (`latest`, `sha-<commit>`, and semver tags derived from Conventional Commits). Use lowercase in the image path. Set package visibility under **Packages** if you need public pulls.
 
 **Compose overrides:** `HOST_PORT`, `SHEET_SYNC_INTERVAL_MS`, and optionally `SHEET_ID` / `SHEET_GID` in `docker-compose.yml` or a `.env` file.
 
