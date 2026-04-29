@@ -41,7 +41,7 @@ jobs:
 
           subjects="$(git log ${commit_range} --format=%s)"
           bodies="$(git log ${commit_range} --format=%b)"
-          bump="none"
+          bump="patch"
 
           if printf '%s\n%s\n' "$subjects" "$bodies" | grep -Eq 'BREAKING CHANGE:'; then
             bump="major"
@@ -67,8 +67,6 @@ jobs:
               ;;
             patch)
               patch=$((patch + 1))
-              ;;
-            none)
               ;;
           esac
 
@@ -96,12 +94,6 @@ jobs:
         id: semver_parts
         shell: bash
         run: |
-          if [ '${{ steps.semver.outputs.bump }}' = 'none' ]; then
-            echo "version=" >> "$GITHUB_OUTPUT"
-            echo "major_minor=" >> "$GITHUB_OUTPUT"
-            echo "major=" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
           version='${{ steps.semver.outputs.version }}'
           if [ -z "$version" ]; then
             echo "version=" >> "$GITHUB_OUTPUT"
