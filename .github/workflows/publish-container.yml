@@ -24,21 +24,85 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Calculate and push semver tag (Conventional Commits)
+      - name: Calculate semver bump from Conventional Commits
         id: semver
-        uses: anothrNick/github-tag-action@1.75.0
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          WITH_V: true
-          DEFAULT_BUMP: patch
-          RELEASE_BRANCHES: main
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --tags --force
+
+          latest_tag="$(git tag --list 'v*' --sort=-v:refname | head -n 1)"
+          if [ -z "$latest_tag" ]; then
+            latest_tag="v0.0.0"
+            commit_range="HEAD"
+          else
+            commit_range="${latest_tag}..HEAD"
+          fi
+
+          subjects="$(git log ${commit_range} --format=%s)"
+          bodies="$(git log ${commit_range} --format=%b)"
+          bump="none"
+
+          if printf '%s\n%s\n' "$subjects" "$bodies" | grep -Eq 'BREAKING CHANGE:'; then
+            bump="major"
+          elif printf '%s\n' "$subjects" | grep -Eq '^[a-z]+(\([^)]+\))?!:'; then
+            bump="major"
+          elif printf '%s\n' "$subjects" | grep -Eq '^feat(\([^)]+\))?:'; then
+            bump="minor"
+          elif printf '%s\n' "$subjects" | grep -Eq '^(fix|perf)(\([^)]+\))?:'; then
+            bump="patch"
+          fi
+
+          version="${latest_tag#v}"
+          IFS='.' read -r major minor patch <<< "$version"
+          case "$bump" in
+            major)
+              major=$((major + 1))
+              minor=0
+              patch=0
+              ;;
+            minor)
+              minor=$((minor + 1))
+              patch=0
+              ;;
+            patch)
+              patch=$((patch + 1))
+              ;;
+            none)
+              ;;
+          esac
+
+          next_version="${major}.${minor}.${patch}"
+          next_tag="v${next_version}"
+          echo "latest_tag=${latest_tag}" >> "$GITHUB_OUTPUT"
+          echo "bump=${bump}" >> "$GITHUB_OUTPUT"
+          echo "version=${next_version}" >> "$GITHUB_OUTPUT"
+          echo "new_tag=${next_tag}" >> "$GITHUB_OUTPUT"
+
+      - name: Create and push semver tag
+        if: ${{ steps.semver.outputs.bump != 'none' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          tag='${{ steps.semver.outputs.new_tag }}'
+          if git rev-parse -q --verify "refs/tags/${tag}" >/dev/null; then
+            echo "Tag ${tag} already exists; skipping tag creation."
+            exit 0
+          fi
+          git tag "${tag}"
+          git push origin "${tag}"
 
       - name: Derive semver image tags
         id: semver_parts
         shell: bash
         run: |
-          raw_tag='${{ steps.semver.outputs.new_tag }}'
-          version="${raw_tag#v}"
+          if [ '${{ steps.semver.outputs.bump }}' = 'none' ]; then
+            echo "version=" >> "$GITHUB_OUTPUT"
+            echo "major_minor=" >> "$GITHUB_OUTPUT"
+            echo "major=" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          version='${{ steps.semver.outputs.version }}'
           if [ -z "$version" ]; then
             echo "version=" >> "$GITHUB_OUTPUT"
             echo "major_minor=" >> "$GITHUB_OUTPUT"
@@ -66,6 +130,12 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
       - name: Docker metadata (tags, labels)
         id: meta
         uses: docker/metadata-action@v5
@@ -82,6 +152,7 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           context: .
+          platforms: linux/amd64,linux/arm64
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
