@@ -10,8 +10,6 @@ pub enum ApiError {
     BadGateway(String),
     #[error("{0}")]
     GatewayTimeout(String),
-    #[error("{0}")]
-    Internal(String),
     #[error(transparent)]
     Sql(#[from] sqlx::Error),
     #[error(transparent)]
@@ -25,7 +23,6 @@ impl IntoResponse for ApiError {
             ApiError::BadRequest(m) => (StatusCode::BAD_REQUEST, m),
             ApiError::BadGateway(m) => (StatusCode::BAD_GATEWAY, m),
             ApiError::GatewayTimeout(m) => (StatusCode::GATEWAY_TIMEOUT, m),
-            ApiError::Internal(m) => (StatusCode::INTERNAL_SERVER_ERROR, m),
             ApiError::Sql(e) => (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()),
             ApiError::Any(e) => (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()),
         };
