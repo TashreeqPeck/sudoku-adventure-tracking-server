@@ -31,6 +31,12 @@ Examples:
 - If you already have many unrelated local changes, **prefer splitting** into multiple commits (or multiple branches/PRs) over one “everything” message.
 - When the user asks only to “save progress,” still use a **real conventional message** for that slice (e.g. `wip(api): …` only if the repo tolerates WIP; otherwise `chore: checkpoint …` with a clear scope).
 
+## Rule precedence and standing permission
+
+- Treat this rule as **standing user permission** to create proactive, logical commits during implementation (without asking every time).
+- This rule takes precedence over generic "wait-until-asked" commit habits in normal project work.
+- Only skip proactive commits when the user explicitly says not to commit yet, asks for one squashed commit later, or a higher-priority system safety policy forbids committing.
+
 ## Before finishing a task
 
 - Prefer **small, reviewable commits** with messages that make `git log` useful without reading the diff.
