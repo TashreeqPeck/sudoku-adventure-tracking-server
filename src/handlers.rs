@@ -11,7 +11,7 @@ use crate::logic::{
     compute_stats, merge_puzzles, normalize_video_used, parse_time_to_seconds, passes_filters,
     resolve_import_csv_url, unique_constraints,
 };
-use crate::models::{CatalogEntry, ImportBody, ProgressBody};
+use crate::models::{CatalogEntry, FiltersBody, ImportBody, ProgressBody};
 use crate::sync::{download_import_csv_text, sync_from_sheet};
 use crate::AppState;
 
@@ -42,8 +42,19 @@ pub async fn api_state(
     State(st): State<AppState>,
     Query(q): Query<StateQuery>,
 ) -> Result<Json<serde_json::Value>, ApiError> {
-    let include = q.include.unwrap_or_default();
-    let exclude = q.exclude.unwrap_or_default();
+    let (mut include, mut exclude) = db::load_filter_settings(&st.pool).await?;
+    let mut should_persist = false;
+    if let Some(v) = q.include {
+        include = v;
+        should_persist = true;
+    }
+    if let Some(v) = q.exclude {
+        exclude = v;
+        should_persist = true;
+    }
+    if should_persist {
+        db::save_filter_settings(&st.pool, &include, &exclude).await?;
+    }
     let progress = db::load_progress_map(&st.pool).await?;
     let cache = st.cache.read().await.clone();
     let merged = merge_puzzles(&cache, &progress);
@@ -180,6 +191,20 @@ pub async fn api_progress_put(
     .await?;
 
     Ok(Json(json!({ "ok": true })))
+}
+
+pub async fn api_filters_put(
+    State(st): State<AppState>,
+    Json(body): Json<FiltersBody>,
+) -> Result<Json<serde_json::Value>, ApiError> {
+    let include = body.include.unwrap_or_default();
+    let exclude = body.exclude.unwrap_or_default();
+    db::save_filter_settings(&st.pool, &include, &exclude).await?;
+    Ok(Json(json!({
+        "ok": true,
+        "include": include,
+        "exclude": exclude,
+    })))
 }
 
 pub async fn api_refresh(State(st): State<AppState>) -> Result<Json<serde_json::Value>, ApiError> {
