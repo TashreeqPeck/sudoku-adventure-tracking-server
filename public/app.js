@@ -66,6 +66,10 @@ function parseFilterValue(raw) {
   return out;
 }
 
+function filterSignature() {
+  return `${tagsToQueryValue(includeTags)}\0${tagsToQueryValue(excludeTags)}`;
+}
+
 async function saveFiltersToDb() {
   const res = await fetch(apiUrl("api/filters"), {
     method: "PUT",
