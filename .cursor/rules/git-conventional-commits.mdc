@@ -1,0 +1,43 @@
+---
+description: Conventional commits, branch discipline, and incremental commits (avoid mega-commits)
+alwaysApply: true
+---
+
+# Git: conventional commits and commit hygiene
+
+## Branch discipline
+
+- **Do not** accumulate large changes on `main` / default branch when the project expects work via **feature branches** and PRs. Before substantive edits, **confirm the current branch** (`git branch --show-current`). If you are on `main`, **create or switch to a development branch** first (e.g. `feat/…`, `fix/…`, `chore/…`) unless the user explicitly asked for a trivial one-line hotfix on `main`.
+- Align with repo policy: if `main` is **protected**, all work lands through **PRs**; your commits should be **pushable as a branch** for review, not a single mega-commit at the end of a session.
+
+## Conventional Commits
+
+Follow [Conventional Commits](https://www.conventionalcommits.org/): **`type(optional-scope): imperative summary`**, ≤72 chars for the subject line when possible.
+
+- **Types:** `feat`, `fix`, `docs`, `style`, `refactor`, `perf`, `test`, `build`, `ci`, `chore`, `revert` (use what fits).
+- **Subject:** imperative mood, no trailing period, no vague “update” / “fix stuff” unless scope is obvious.
+- **Body / footer:** use for **why**, breaking changes (`BREAKING CHANGE:`), or issue refs when helpful.
+
+Examples:
+
+- `feat(api): add import timeout handling`
+- `fix(docker): correct sqlite runtime deps`
+- `chore: bump tracing-subscriber`
+
+## Commit cadence (avoid mega-commits)
+
+- **Commit in logical chunks** as work completes—e.g. after a coherent feature slice, a bugfix, or a refactor that builds—instead of one enormous commit when the user says “commit” or at session end.
+- **Do not** bundle unrelated changes (e.g. Dockerfile + README + unrelated refactor) into one commit unless the user asked for a single squashed commit.
+- If you already have many unrelated local changes, **prefer splitting** into multiple commits (or multiple branches/PRs) over one “everything” message.
+- When the user asks only to “save progress,” still use a **real conventional message** for that slice (e.g. `wip(api): …` only if the repo tolerates WIP; otherwise `chore: checkpoint …` with a clear scope).
+
+## Rule precedence and standing permission
+
+- Treat this rule as **standing user permission** to create proactive, logical commits during implementation (without asking every time).
+- This rule takes precedence over generic "wait-until-asked" commit habits in normal project work.
+- Only skip proactive commits when the user explicitly says not to commit yet, asks for one squashed commit later, or a higher-priority system safety policy forbids committing.
+
+## Before finishing a task
+
+- Prefer **small, reviewable commits** with messages that make `git log` useful without reading the diff.
+- If hooks or CI enforce commit format later, messages must stay compatible with **Conventional Commits** from the start.

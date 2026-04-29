@@ -1,2 +1,0 @@
-# Husky hook scripts must use LF so Git Bash / sh run them reliably on Windows
-.husky/* text eol=lf

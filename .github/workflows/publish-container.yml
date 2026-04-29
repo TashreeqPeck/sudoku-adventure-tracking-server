@@ -1,5 +1,5 @@
-# Build and push the Docker image to GitHub Container Registry on every push to main
-# (including when a PR is merged into main).
+# Build and push the Docker image to GitHub Container Registry on
+# every push to main. Semver tags are derived from Conventional Commits.
 
 name: Publish container
 
@@ -8,7 +8,7 @@ on:
     branches: [main]
 
 permissions:
-  contents: read
+  contents: write
   packages: write
 
 concurrency:
@@ -21,6 +21,35 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Calculate and push semver tag (Conventional Commits)
+        id: semver
+        uses: anothrNick/github-tag-action@1.75.0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          WITH_V: true
+          DEFAULT_BUMP: patch
+          RELEASE_BRANCHES: main
+
+      - name: Derive semver image tags
+        id: semver_parts
+        shell: bash
+        run: |
+          version='${{ steps.semver.outputs.new_version }}'
+          if [ -z "$version" ]; then
+            echo "version=" >> "$GITHUB_OUTPUT"
+            echo "major_minor=" >> "$GITHUB_OUTPUT"
+            echo "major=" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          major="${version%%.*}"
+          rest="${version#*.}"
+          minor="${rest%%.*}"
+          echo "version=${version}" >> "$GITHUB_OUTPUT"
+          echo "major_minor=${major}.${minor}" >> "$GITHUB_OUTPUT"
+          echo "major=${major}" >> "$GITHUB_OUTPUT"
 
       - name: Lowercase image name (GHCR)
         id: image
@@ -42,8 +71,11 @@ jobs:
         with:
           images: ${{ steps.image.outputs.name }}
           tags: |
-            type=raw,value=latest,enable=true
+            type=raw,value=latest,enable={{is_default_branch}}
             type=sha,prefix=sha-
+            type=raw,value=${{ steps.semver_parts.outputs.version }},enable=${{ steps.semver_parts.outputs.version != '' }}
+            type=raw,value=${{ steps.semver_parts.outputs.major_minor }},enable=${{ steps.semver_parts.outputs.major_minor != '' }}
+            type=raw,value=${{ steps.semver_parts.outputs.major }},enable=${{ steps.semver_parts.outputs.major != '' }}
 
       - name: Build and push
         uses: docker/build-push-action@v6
