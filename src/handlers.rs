@@ -161,11 +161,11 @@ pub async fn api_progress_put(
         }
     } else if let Some(ref t) = body.time {
         if !t.trim().is_empty() {
-            time_seconds = parse_time_to_seconds(t).ok_or_else(|| {
+            time_seconds = Some(parse_time_to_seconds(t).ok_or_else(|| {
                 ApiError::BadRequest(
                     "Use a time like 4:50, 04:50, 0:04:50, or 1:09:05 (minutes:seconds or hours:minutes:seconds)".into(),
                 )
-            })?;
+            })?);
         }
     }
 
