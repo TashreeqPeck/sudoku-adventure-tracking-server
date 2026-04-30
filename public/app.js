@@ -219,16 +219,12 @@ function setTimeInputs(seconds) {
     return;
   }
   const n = parseInt(String(seconds), 10);
+  if (!Number.isFinite(n) || n <= 0) {
+    $("t-combined").value = "";
+    return;
+  }
   $("t-combined").value = formatHMS(n);
 }
-
-/** Clicking the time field selects all text so new input replaces it without manual deletes. */
-$("t-combined").addEventListener("focus", (e) => {
-  e.currentTarget.select();
-});
-$("t-combined").addEventListener("mouseup", (e) => {
-  e.preventDefault();
-});
 
 function syncVideoRadios(p) {
   const v = p?.videoUsed;
