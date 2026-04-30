@@ -50,6 +50,11 @@ function tagsToQueryValue(tags) {
   return tags.map((t) => t.trim()).filter(Boolean).join("\n");
 }
 
+/** Stable string for current include/exclude lists (browse page resets when it changes). */
+function filterSignature() {
+  return JSON.stringify({ include: includeTags, exclude: excludeTags });
+}
+
 function parseFilterValue(raw) {
   const lines = String(raw || "")
     .split(/\r?\n/)
