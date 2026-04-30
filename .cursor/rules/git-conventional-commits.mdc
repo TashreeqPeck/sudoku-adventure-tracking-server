@@ -17,7 +17,9 @@ Follow [Conventional Commits](https://www.conventionalcommits.org/): **`type(opt
 - **Types:** `feat`, `fix`, `docs`, `style`, `refactor`, `perf`, `test`, `build`, `ci`, `chore`, `revert` (use what fits).
 - **Subject:** imperative mood, no trailing period, no vague “update” / “fix stuff” unless scope is obvious.
 - **Body / footer:** use for **why**, breaking changes (`BREAKING CHANGE:`), or issue refs when helpful.
-- **Commitlint width:** keep every commit-message body/footer line at **100 chars max** (wrap long lines).
+- **Commitlint / `body-max-line-length`:** this repo enforces **≤100 characters per physical line** for the entire message body (and typically footers). **Wrap prose manually**—do not paste one long paragraph. Before committing, scan each body line’s length (editors show column number) or use `git commit -F` with a file you pre-wrapped.
+- **Do not trust “I summarized in one sentence”** for multi-line bodies: a single long line **will fail CI** even if the rule file mentions 100 chars elsewhere—**every** newline-separated line must comply.
+- **IDE trailers:** if a tool appends footers (e.g. `Made-with: …`), keep them on their own short line; they do not excuse an overlong body paragraph above them.
 - **Default safe mode:** if a body is not required, use a subject-only commit message.
 
 Examples:
@@ -43,3 +45,4 @@ Examples:
 
 - Prefer **small, reviewable commits** with messages that make `git log` useful without reading the diff.
 - If hooks or CI enforce commit format later, messages must stay compatible with **Conventional Commits** from the start.
+- **Commitlint:** re-read the final message (including body): **no line over 100 characters.** Fix wraps before pushing—`wagoid/commitlint-github-action` in CI will reject the PR otherwise.

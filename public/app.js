@@ -501,7 +501,7 @@ function updateSyncStatus() {
 
 async function refreshAll() {
   await loadState();
-  const sig = filterSignature();
+  const sig = JSON.stringify({ include: includeTags, exclude: excludeTags });
   if (lastBrowseFilterSig !== null && sig !== lastBrowseFilterSig) {
     browsePage = 0;
   }
