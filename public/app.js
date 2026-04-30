@@ -654,6 +654,41 @@ function setImportMsg(text, isErr) {
   el.classList.toggle("err", !!isErr);
 }
 
+function pickFilenameFromContentDisposition(headerVal) {
+  if (!headerVal) return null;
+  const m = /filename="([^"]+)"/i.exec(headerVal) || /filename=([^;]+)/i.exec(headerVal);
+  if (!m) return null;
+  return m[1].trim();
+}
+
+$("btn-export").addEventListener("click", async () => {
+  $("btn-export").disabled = true;
+  setImportMsg("Preparing download…", false);
+  try {
+    const res = await fetch(apiUrl("api/export"));
+    if (!res.ok) {
+      const j = await res.json().catch(() => ({}));
+      throw new Error(j.error || res.statusText);
+    }
+    const blob = await res.blob();
+    const name =
+      pickFilenameFromContentDisposition(
+        res.headers.get("Content-Disposition")
+      ) || "sudoku-adventure-export.csv";
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = name;
+    a.click();
+    URL.revokeObjectURL(url);
+    setImportMsg("Download started.", false);
+  } catch (e) {
+    setImportMsg(String(e.message || e), true);
+  } finally {
+    $("btn-export").disabled = false;
+  }
+});
+
 $("btn-import").addEventListener("click", async () => {
   const url = $("import-url").value.trim();
   if (!url) {

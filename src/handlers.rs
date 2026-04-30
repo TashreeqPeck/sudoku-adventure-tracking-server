@@ -1,6 +1,9 @@
 use std::time::Duration;
 
+use axum::body::Body;
 use axum::extract::{Path, Query, State};
+use axum::http::{header, HeaderValue, StatusCode};
+use axum::response::Response;
 use axum::Json;
 use serde::Deserialize;
 use serde_json::json;
@@ -229,6 +232,27 @@ pub async fn api_refresh(State(st): State<AppState>) -> Result<Json<serde_json::
             Err(ApiError::BadGateway(e.to_string()))
         }
     }
+}
+
+pub async fn api_export(State(st): State<AppState>) -> Result<Response, ApiError> {
+    let progress = db::load_progress_map(&st.pool).await?;
+    let cache = st.cache.read().await.clone();
+    let merged = merge_puzzles(&cache, &progress);
+    let csv = crate::csv_util::progress_export_csv(&merged)?;
+    let filename = format!(
+        "sudoku-adventure-export-{}.csv",
+        chrono::Utc::now().format("%Y%m%d-%H%M%S")
+    );
+    let disposition = format!("attachment; filename=\"{filename}\"");
+    let hv = HeaderValue::try_from(disposition.as_str()).map_err(|_| {
+        ApiError::BadRequest("Invalid Content-Disposition".into())
+    })?;
+    Response::builder()
+        .status(StatusCode::OK)
+        .header(header::CONTENT_TYPE, "text/csv; charset=utf-8")
+        .header(header::CONTENT_DISPOSITION, hv)
+        .body(Body::from(csv))
+        .map_err(|e| ApiError::Any(anyhow::Error::from(e)))
 }
 
 pub async fn api_import(

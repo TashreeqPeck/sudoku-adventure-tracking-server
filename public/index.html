@@ -165,9 +165,21 @@
       </details>
 
       <details class="import-foot" id="import-wrap">
-        <summary class="import-summary">Import from spreadsheet CSV…</summary>
+        <summary class="import-summary">Import / export spreadsheet CSV…</summary>
         <p class="hint import-hint">
-          Paste the normal <strong>Share / Edit</strong> link from the address bar
+          <strong>Export</strong> — download a CSV with the same columns as the puzzle sheet plus
+          <strong>Solved</strong>, <strong>Time</strong>, <strong>Skipped</strong>, and
+          <strong>Video Used</strong>. Open it in Google Sheets or merge into your copy of the list
+          (this app does not write to the live Rangsk sheet).
+        </p>
+        <div class="import-row">
+          <button type="button" id="btn-export" class="btn primary">
+            Download progress CSV
+          </button>
+        </div>
+        <p class="hint import-hint">
+          <strong>Import</strong> — paste the normal <strong>Share / Edit</strong> link from the
+          address bar
           (for example
           <code>docs.google.com/spreadsheets/d/<wbr />…/edit?…</code>) or a CSV
           <code>…/export?format=csv&amp;gid=…</code> URL. The first puzzle tab
@@ -194,6 +206,6 @@
       </details>
     </main>
 
-    <script src="/app.js?v=2" type="module"></script>
+    <script src="/app.js?v=3" type="module"></script>
   </body>
 </html>
