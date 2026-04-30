@@ -50,11 +50,6 @@ function tagsToQueryValue(tags) {
   return tags.map((t) => t.trim()).filter(Boolean).join("\n");
 }
 
-/** Stable string for current include/exclude lists (browse page resets when it changes). */
-function filterSignature() {
-  return JSON.stringify({ include: includeTags, exclude: excludeTags });
-}
-
 function parseFilterValue(raw) {
   const lines = String(raw || "")
     .split(/\r?\n/)
@@ -502,7 +497,7 @@ function updateSyncStatus() {
 
 async function refreshAll() {
   await loadState();
-  const sig = filterSignature();
+  const sig = JSON.stringify({ include: includeTags, exclude: excludeTags });
   if (lastBrowseFilterSig !== null && sig !== lastBrowseFilterSig) {
     browsePage = 0;
   }
