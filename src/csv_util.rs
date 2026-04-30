@@ -43,10 +43,62 @@ pub fn normalize_row(row: &HashMap<String, String>) -> Option<Puzzle> {
 
 pub fn puzzles_from_csv(text: &str) -> anyhow::Result<Vec<Puzzle>> {
     let records = parse_csv_records(text).context("csv parse")?;
-    let mut out: Vec<Puzzle> = records
-        .iter()
-        .filter_map(|r| normalize_row(r))
-        .collect();
+    let mut out: Vec<Puzzle> = records.iter().filter_map(normalize_row).collect();
     out.sort_by_key(|p| p.number);
     Ok(out)
+}
+
+/// CSV suitable for **File → Import** in Google Sheets or merge into a copy of the puzzle list.
+/// Columns align with sheet sync and with `import_progress_from_csv_records` (`Solved`, `Time`, …).
+pub fn progress_export_csv(merged: &[crate::models::MergedPuzzle]) -> anyhow::Result<String> {
+    use crate::logic::format_seconds;
+
+    let mut w = csv::WriterBuilder::new()
+        .from_writer(Vec::new());
+
+    w.write_record([
+        "Puzzle Number",
+        "Title",
+        "Setter",
+        "Constraints",
+        "Puzzle Link",
+        "Video Link",
+        "Solved",
+        "Time (Include Hour, like 0:04:50)",
+        "Skipped",
+        "Video Used",
+    ])
+    .context("csv header")?;
+
+    for p in merged {
+        let time = p
+            .time_seconds
+            .map(format_seconds)
+            .unwrap_or_default();
+        let video = p.video_used.as_deref().unwrap_or("");
+        w.write_record([
+            p.base.number.to_string(),
+            p.base.title.clone(),
+            p.base.setter.clone(),
+            p.base.constraints.clone(),
+            p.base.puzzle_link.clone(),
+            p.base.video_link.clone(),
+            if p.solved {
+                "TRUE".to_string()
+            } else {
+                "FALSE".to_string()
+            },
+            time,
+            if p.skipped {
+                "TRUE".to_string()
+            } else {
+                "FALSE".to_string()
+            },
+            video.to_string(),
+        ])
+        .context("csv row")?;
+    }
+
+    let buf = w.into_inner().context("csv finish")?;
+    String::from_utf8(buf).context("csv utf8")
 }

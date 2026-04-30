@@ -127,6 +127,7 @@ async fn main() -> anyhow::Result<()> {
         .route("/filters", put(handlers::api_filters_put))
         .route("/progress/{number}", put(handlers::api_progress_put))
         .route("/refresh", post(handlers::api_refresh))
+        .route("/export", get(handlers::api_export))
         .route("/import-from-url", post(handlers::api_import))
         .with_state(state);
 
