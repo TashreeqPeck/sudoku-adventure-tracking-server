@@ -223,6 +223,10 @@ function setTimeInputs(seconds) {
     return;
   }
   const n = parseInt(String(seconds), 10);
+  if (!Number.isFinite(n) || n <= 0) {
+    $("t-combined").value = "";
+    return;
+  }
   $("t-combined").value = formatHMS(n);
 }
 
