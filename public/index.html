@@ -145,6 +145,49 @@
           <span id="browse-scope-note" class="pager-info"></span>
           <div id="browse-pager" class="pager" aria-label="Pagination"></div>
         </div>
+        <div
+          class="browse-controls"
+          role="group"
+          aria-label="Browse filter and sort"
+        >
+          <div class="browse-field">
+            <label class="browse-show-label" for="browse-sort">Sort</label>
+            <select id="browse-sort" class="browse-mode-select" aria-label="Browse sort order">
+              <option value="num-asc">Puzzle # (low → high)</option>
+              <option value="num-desc">Puzzle # (high → low)</option>
+              <option value="title-asc">Title (A → Z)</option>
+              <option value="constraints-asc">Constraints (A → Z)</option>
+              <option value="time-asc">Time (short → long)</option>
+              <option value="time-desc">Time (long → short)</option>
+              <option value="status">Status (queue → skip → solved)</option>
+            </select>
+          </div>
+          <div class="browse-field">
+            <label class="browse-show-label" for="browse-status">Status</label>
+            <select id="browse-status" class="browse-mode-select" aria-label="Browse status filter">
+              <option value="all">All</option>
+              <option value="queue">In queue</option>
+              <option value="solved">Solved</option>
+              <option value="skipped">Skipped</option>
+            </select>
+          </div>
+          <div class="browse-field browse-field-grow">
+            <label class="browse-show-label" for="browse-search">Search</label>
+            <input
+              type="search"
+              id="browse-search"
+              class="browse-search-input"
+              placeholder="Title, constraints, setter…"
+              autocomplete="off"
+              spellcheck="false"
+              aria-label="Filter browse rows by text"
+            />
+          </div>
+          <label class="browse-check-label" id="browse-match-wrap">
+            <input type="checkbox" id="browse-match-only" />
+            Matching constraints only
+          </label>
+        </div>
         <div class="table-wrap">
           <table>
             <thead>
@@ -194,6 +237,6 @@
       </details>
     </main>
 
-    <script src="/app.js?v=4" type="module"></script>
+    <script src="/app.js?v=5" type="module"></script>
   </body>
 </html>

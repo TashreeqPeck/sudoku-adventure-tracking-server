@@ -15,8 +15,22 @@ function apiUrl(pathWithQuery) {
 
 const STORAGE_SCOPE = "sa-scope";
 const STORAGE_BROWSE_MODE = "sa-browse-mode";
+const STORAGE_BROWSE_SORT = "sa-browse-sort";
+const STORAGE_BROWSE_STATUS = "sa-browse-status";
+const STORAGE_BROWSE_MATCH = "sa-browse-match-only";
+const STORAGE_BROWSE_SEARCH = "sa-browse-search";
 
 const BROWSE_PAGE_SIZE = 50;
+
+const BROWSE_SORT_VALUES = new Set([
+  "num-asc",
+  "num-desc",
+  "title-asc",
+  "constraints-asc",
+  "time-asc",
+  "time-desc",
+  "status",
+]);
 
 let state = null;
 let currentNext = null;
@@ -28,6 +42,14 @@ let excludeTags = [];
 let scopeMode = "filtered";
 let browsePage = 0;
 let lastBrowseFilterSig = null;
+
+/** @type {string} */
+let browseSort = "num-asc";
+/** @type {"all" | "queue" | "solved" | "skipped"} */
+let browseStatusFilter = "all";
+let browseMatchOnly = false;
+/** @type {string} */
+let browseSearchRaw = "";
 
 function loadScopeFromStorage() {
   try {
@@ -44,6 +66,166 @@ function loadScopeFromStorage() {
 
 function persistScopeMode() {
   sessionStorage.setItem(STORAGE_SCOPE, scopeMode);
+}
+
+function loadBrowsePrefsFromStorage() {
+  try {
+    const s = sessionStorage.getItem(STORAGE_BROWSE_SORT);
+    if (s && BROWSE_SORT_VALUES.has(s)) browseSort = s;
+    const st = sessionStorage.getItem(STORAGE_BROWSE_STATUS);
+    if (st === "all" || st === "queue" || st === "solved" || st === "skipped") {
+      browseStatusFilter = st;
+    }
+    browseMatchOnly = sessionStorage.getItem(STORAGE_BROWSE_MATCH) === "1";
+    const q = sessionStorage.getItem(STORAGE_BROWSE_SEARCH);
+    if (typeof q === "string") browseSearchRaw = q;
+  } catch {
+    /* keep defaults */
+  }
+}
+
+function persistBrowseSort() {
+  try {
+    sessionStorage.setItem(STORAGE_BROWSE_SORT, browseSort);
+  } catch {
+    /* ignore */
+  }
+}
+
+function persistBrowseStatusFilter() {
+  try {
+    sessionStorage.setItem(STORAGE_BROWSE_STATUS, browseStatusFilter);
+  } catch {
+    /* ignore */
+  }
+}
+
+function persistBrowseMatchOnly() {
+  try {
+    sessionStorage.setItem(STORAGE_BROWSE_MATCH, browseMatchOnly ? "1" : "0");
+  } catch {
+    /* ignore */
+  }
+}
+
+function persistBrowseSearch() {
+  try {
+    sessionStorage.setItem(STORAGE_BROWSE_SEARCH, browseSearchRaw);
+  } catch {
+    /* ignore */
+  }
+}
+
+function syncBrowseControlsFromState() {
+  const sortEl = $("browse-sort");
+  const statusEl = $("browse-status");
+  const matchEl = $("browse-match-only");
+  const searchEl = $("browse-search");
+  if (sortEl) sortEl.value = browseSort;
+  if (statusEl) statusEl.value = browseStatusFilter;
+  if (matchEl) matchEl.checked = browseMatchOnly;
+  if (searchEl && document.activeElement !== searchEl) {
+    searchEl.value = browseSearchRaw;
+  }
+}
+
+function browseStatusRank(p) {
+  if (p.solved) return 2;
+  if (p.skipped) return 1;
+  return 0;
+}
+
+function compareBrowseTimeAsc(a, b) {
+  const ta = Number.isFinite(a.timeSeconds) ? a.timeSeconds : null;
+  const tb = Number.isFinite(b.timeSeconds) ? b.timeSeconds : null;
+  if (ta == null && tb == null) return a.number - b.number;
+  if (ta == null) return 1;
+  if (tb == null) return -1;
+  if (ta !== tb) return ta - tb;
+  return a.number - b.number;
+}
+
+function browseRowPassesStatus(p) {
+  switch (browseStatusFilter) {
+    case "queue":
+      return !p.solved && !p.skipped;
+    case "solved":
+      return !!p.solved;
+    case "skipped":
+      return !!p.skipped && !p.solved;
+    default:
+      return true;
+  }
+}
+
+function browseRowPassesMatchOnly(p) {
+  if (scopeMode !== "all" || !browseMatchOnly) return true;
+  return p.matchesFilter !== false;
+}
+
+function browseRowPassesSearch(p) {
+  const q = browseSearchRaw.trim().toLowerCase();
+  if (!q) return true;
+  const hay = `${p.title || ""}\n${p.constraints || ""}\n${p.setter || ""}`.toLowerCase();
+  return hay.includes(q);
+}
+
+function sortBrowseList(list) {
+  const out = list.slice();
+  switch (browseSort) {
+    case "num-desc":
+      out.sort((a, b) => b.number - a.number);
+      break;
+    case "title-asc":
+      out.sort((a, b) => {
+        const c = String(a.title || "").localeCompare(
+          String(b.title || ""),
+          undefined,
+          { sensitivity: "base" }
+        );
+        return c !== 0 ? c : a.number - b.number;
+      });
+      break;
+    case "constraints-asc":
+      out.sort((a, b) => {
+        const c = String(a.constraints || "").localeCompare(
+          String(b.constraints || ""),
+          undefined,
+          { sensitivity: "base" }
+        );
+        return c !== 0 ? c : a.number - b.number;
+      });
+      break;
+    case "time-asc":
+      out.sort(compareBrowseTimeAsc);
+      break;
+    case "time-desc":
+      out.sort((a, b) => compareBrowseTimeAsc(b, a));
+      break;
+    case "status":
+      out.sort((a, b) => {
+        const ra = browseStatusRank(a);
+        const rb = browseStatusRank(b);
+        if (ra !== rb) return ra - rb;
+        return a.number - b.number;
+      });
+      break;
+    default:
+      out.sort((a, b) => a.number - b.number);
+  }
+  return out;
+}
+
+function prepareBrowseList() {
+  const raw = getBrowseList();
+  let list = raw.filter(
+    (p) =>
+      browseRowPassesStatus(p) &&
+      browseRowPassesMatchOnly(p) &&
+      browseRowPassesSearch(p)
+  );
+  list = sortBrowseList(list);
+  return { list, rawLen: raw.length };
 }
 
 function tagsToQueryValue(tags) {
@@ -388,7 +570,12 @@ function renderBrowse() {
   const tbody = $("browse-body");
   tbody.innerHTML = "";
 
-  const list = getBrowseList();
+  const matchWrap = $("browse-match-wrap");
+  if (matchWrap) matchWrap.hidden = scopeMode !== "all";
+
+  syncBrowseControlsFromState();
+
+  const { list, rawLen } = prepareBrowseList();
   const total = list.length;
   const hasActiveFilters =
     (includeTags && includeTags.length > 0) ||
@@ -435,24 +622,34 @@ function renderBrowse() {
 
   const note = $("browse-note");
   if (total === 0) {
-    note.textContent =
-      scopeMode === "filtered"
-        ? "No puzzles match the current filters."
-        : "No puzzles loaded.";
+    if (rawLen === 0) {
+      note.textContent =
+        scopeMode === "filtered"
+          ? "No puzzles match the current filters."
+          : "No puzzles loaded.";
+    } else {
+      note.textContent =
+        "No puzzles match the browse filters (status, search, or matching constraints only).";
+    }
     return;
   }
 
   const from = start + 1;
   const to = start + pageRows.length;
+  let noteText;
   if (scopeMode === "filtered") {
-    note.textContent = `${total} puzzle(s) in filtered list. Rows ${from}–${to} of ${total}.`;
+    noteText = `${total} puzzle(s) in filtered list. Rows ${from}–${to} of ${total}.`;
   } else if (hasActiveFilters) {
     const matching = getCatalog().filter((p) => p.matchesFilter !== false)
       .length;
-    note.textContent = `${total} puzzles total (${matching} match filters). Rows ${from}–${to}. Dimmed rows are outside the filter.`;
+    noteText = `${rawLen} puzzles in catalog (${matching} match constraint filters). Rows ${from}–${to} of ${total}. Dimmed rows are outside the filter.`;
   } else {
-    note.textContent = `${total} puzzles total. Rows ${from}–${to}.`;
+    noteText = `${rawLen} puzzles in catalog. Rows ${from}–${to} of ${total}.`;
   }
+  if (total < rawLen) {
+    noteText += ` (${total} of ${rawLen} rows pass browse filters.)`;
+  }
+  note.textContent = noteText;
 }
 
 function escapeHtml(s) {
@@ -694,7 +891,40 @@ $("scope-mode").addEventListener("change", () => {
   renderBrowse();
 });
 
+$("browse-sort").addEventListener("change", () => {
+  browseSort = $("browse-sort").value;
+  if (!BROWSE_SORT_VALUES.has(browseSort)) browseSort = "num-asc";
+  browsePage = 0;
+  persistBrowseSort();
+  renderBrowse();
+});
+
+$("browse-status").addEventListener("change", () => {
+  const v = $("browse-status").value;
+  browseStatusFilter =
+    v === "queue" || v === "solved" || v === "skipped" ? v : "all";
+  browsePage = 0;
+  persistBrowseStatusFilter();
+  renderBrowse();
+});
+
+$("browse-match-only").addEventListener("change", () => {
+  browseMatchOnly = $("browse-match-only").checked;
+  browsePage = 0;
+  persistBrowseMatchOnly();
+  renderBrowse();
+});
+
+$("browse-search").addEventListener("input", () => {
+  browseSearchRaw = $("browse-search").value;
+  browsePage = 0;
+  persistBrowseSearch();
+  renderBrowse();
+});
+
 loadScopeFromStorage();
+loadBrowsePrefsFromStorage();
+syncBrowseControlsFromState();
 renderChipLists();
 refreshAll().catch((e) => {
   $("next-title").textContent = "Failed to load";
