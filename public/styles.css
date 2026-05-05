@@ -532,6 +532,51 @@ td.num {
   margin-bottom: 0.65rem;
 }
 
+.browse-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0.65rem 1rem;
+  margin-bottom: 0.65rem;
+}
+
+.browse-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.browse-field-grow {
+  flex: 1 1 12rem;
+  min-width: 10rem;
+}
+
+.browse-search-input {
+  width: 100%;
+  min-width: 8rem;
+  padding: 0.4rem 0.5rem;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text);
+  font: inherit;
+}
+
+.browse-check-label {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.82rem;
+  cursor: pointer;
+  white-space: nowrap;
+  padding-bottom: 0.15rem;
+}
+
+.browse-check-label input {
+  width: auto;
+  margin: 0;
+}
+
 .browse-show-label {
   font-size: 0.78rem;
   font-weight: 600;
